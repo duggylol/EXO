@@ -41,7 +41,7 @@ database:
 # `feed_url` to a custom manifest JSON. Updates keep all saved data + login.
 update:
   enabled: true
-  repo: ""                      # e.g. "yourusername/futures-trading-bot"
+  repo: "duggylol/EXO"          # GitHub repo the auto-updater reads Releases from
   feed_url: ""                  # optional: direct URL to a latest.json manifest
   check_interval_hours: 6
 

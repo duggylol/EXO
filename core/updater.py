@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
-from .version import VERSION
+from .version import UPDATE_REPO, VERSION
 
 try:
     import aiohttp
@@ -74,7 +74,9 @@ def platform_key() -> str:
 class Updater:
     def __init__(self, settings: dict):
         self.enabled = bool(settings.get("enabled", True))
-        self.repo = settings.get("repo", "") or ""
+        # Config can override, but default to the repo baked into the build so
+        # self-update works even with an older saved config.
+        self.repo = (settings.get("repo") or UPDATE_REPO or "").strip()
         self.feed_url = settings.get("feed_url", "") or ""
         self.current = VERSION
         self.latest: Optional[UpdateInfo] = None
