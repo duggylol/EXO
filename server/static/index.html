@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EXO</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-logo" src="/logo.png" alt="EXO" />
+      <span class="title">EXO</span>
+      <span id="statusDot" class="dot"></span>
+      <span id="appVersion" class="muted small ver"></span>
+      <span id="status" class="muted small">connecting…</span>
+    </div>
+    <div class="badges" id="topBadges" hidden>
+      <span class="badge">provider&nbsp;<b id="provider">—</b></span>
+      <span class="badge">mode&nbsp;<b id="mode">—</b></span>
+      <span class="badge">uptime&nbsp;<b id="uptime">—</b></span>
+      <button id="disconnectBtn" class="btn-ghost">Disconnect</button>
+      <button id="flattenBtn" class="btn-danger">FLATTEN ALL</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="updateBanner" class="update-banner" hidden>
+      <span class="ub-icon">↑</span>
+      <span class="ub-text"><b id="ubVersion">Update available</b><span id="ubNotes" class="ub-notes"></span></span>
+      <button id="updateBtn" class="ub-btn">Update &amp; Restart</button>
+    </div>
+
+    <!-- ===================== ONBOARDING / WELCOME ===================== -->
+    <section id="onboarding" class="onboarding" hidden>
+      <div class="welcome-head">
+        <img class="welcome-logo" src="/logo.png" alt="EXO" />
+        <h1>Welcome to EXO</h1>
+        <p class="welcome-sub muted">Connect your account to get started.</p>
+        <p class="muted">Pick your provider and log in with the credentials your prop
+          firm gave you. The app shows <b>only real data</b> from your connection —
+          there is no demo mode. Your login is saved on this device only.</p>
+      </div>
+      <div id="providerCards" class="provider-grid"></div>
+
+      <form id="loginForm" class="login-form" hidden>
+        <div class="login-head">
+          <button type="button" id="backBtn" class="btn-ghost small">← Back</button>
+          <h2 id="loginTitle">Log in</h2>
+        </div>
+        <p id="loginDesc" class="muted small"></p>
+        <div id="capBadges" class="cap-badges"></div>
+        <div id="formFields"></div>
+        <p id="loginNote" class="muted small note"></p>
+        <button type="submit" id="connectBtn" class="btn-primary">Connect</button>
+        <div id="connectMsg" class="connect-msg"></div>
+      </form>
+    </section>
+
+    <!-- ========================= DASHBOARD =========================== -->
+    <section id="dashboard" hidden>
+      <div class="bar-note" id="modeNote" hidden></div>
+
+      <section class="cards" id="accountCards">
+        <div class="card"><div class="label">Balance</div><div class="value" id="balance">—</div></div>
+        <div class="card"><div class="label">Equity (net liq)</div><div class="value" id="equity">—</div></div>
+        <div class="card"><div class="label">Open P/L</div><div class="value" id="openPnl">—</div></div>
+        <div class="card"><div class="label">Day P/L</div><div class="value" id="dayPnl">—</div></div>
+        <div class="card"><div class="label">Open Contracts</div><div class="value" id="openContracts">—</div></div>
+      </section>
+
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head"><h2>Account Equity</h2><span class="muted small" id="curveMeta"></span></div>
+          <canvas id="equityCanvas"></canvas>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Risk &amp; Drawdown Guard</h2><span id="haltBadge" class="muted small"></span></div>
+          <div class="risk-row">
+            <div class="risk-label">Daily loss limit</div>
+            <div class="bar"><div id="dailyBar" class="bar-fill"></div></div>
+            <div class="risk-num" id="dailyNum">—</div>
+          </div>
+          <div class="risk-row">
+            <div class="risk-label">Trailing drawdown</div>
+            <div class="bar"><div id="ddBar" class="bar-fill"></div></div>
+            <div class="risk-num" id="ddNum">—</div>
+          </div>
+          <div class="risk-meta">
+            <span>Peak equity <b id="peakEquity">—</b></span>
+            <span>Max acct contracts <b id="maxContracts">—</b></span>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Live Positions</h2><span class="muted small">from your account</span></div>
+        <table class="trades">
+          <thead><tr><th>Symbol</th><th>Side</th><th class="r">Qty</th><th class="r">Avg Price</th><th class="r">Open P/L</th></tr></thead>
+          <tbody id="positionsBody"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Strategies</h2><span class="muted small" id="stratCount"></span></div>
+        <div class="strat-grid" id="strategies"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Recent Trades</h2><span class="muted small">bot-executed (this session)</span></div>
+        <table class="trades">
+          <thead><tr><th>Time</th><th>Strategy</th><th>Symbol</th><th>Dir</th><th class="r">Qty</th>
+              <th class="r">Entry</th><th class="r">Exit</th><th class="r">Ticks</th><th class="r">P/L</th></tr></thead>
+          <tbody id="tradesBody"></tbody>
+        </table>
+      </section>
+    </section>
+  </main>
+
+  <div id="toasts" class="toasts"></div>
+
+  <div id="updateOverlay" class="update-overlay" hidden>
+    <div class="uo-card">
+      <div class="uo-spinner"></div>
+      <div class="uo-title">Updating…</div>
+      <div class="uo-msg">Downloading the new version and restarting. The app will
+        reopen automatically — your login, settings, and data are kept.</div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

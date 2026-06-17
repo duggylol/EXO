@@ -1,0 +1,62 @@
+# ============================================================================
+# EXO configuration
+#
+# The CONNECTION (which prop firm / provider, and your login) is chosen in the
+# app on the welcome screen — NOT here — and saved locally for next time.
+# This file holds your risk limits and the strategies you want to run.
+# ============================================================================
+
+account:
+  # Real balance/equity always comes from your connected provider. This is only
+  # a baseline for local per-strategy P/L attribution; leave at 0.
+  starting_balance: 0
+
+# Risk / prop-firm guard — applied to your REAL account. When a limit trips, the
+# bot flattens and halts. TUNE THESE to match your firm's published rules.
+risk:
+  daily_loss_limit: 1000          # halt the day if real day P/L <= -this
+  trailing_drawdown: 2500         # halt for good if real equity <= peak - this
+  max_contracts_account: 10
+  max_contracts_per_strategy: 3
+  default_contracts: 1
+  halt_on_drawdown: true
+
+# How often (seconds) to pull fresh real account data from the provider.
+account_poll_s: 4.0
+
+discord:
+  enabled: true                   # webhook URL comes from .env (DISCORD_WEBHOOK_URL)
+  username: "EXO"
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+database:
+  path: exo.db
+
+# Auto-update. Point `repo` at your GitHub repo ("owner/name") once you push it;
+# the in-app updater reads its Releases and notifies you when a newer version is
+# published (the CI workflow publishes one when you push a vX.Y.Z tag). Or set
+# `feed_url` to a custom manifest JSON. Updates keep all saved data + login.
+update:
+  enabled: true
+  repo: ""                      # e.g. "yourusername/futures-trading-bot"
+  feed_url: ""                  # optional: direct URL to a latest.json manifest
+  check_interval_hours: 6
+
+# ---------------------------------------------------------------------------
+# Strategies to run once connected (only trade if your provider supplies market
+# data). Add as many as you like. See keys: python -m backtest.backtester --list
+# ---------------------------------------------------------------------------
+strategies:
+  - {strategy: ma_cross,       symbol: MES, enabled: true,  params: {fast: 10, slow: 30}}
+  - {strategy: ema_trend,      symbol: MES, enabled: true,  params: {fast: 21, slow: 55}}
+  - {strategy: rsi_reversion,  symbol: MES, enabled: true,  params: {period: 14, oversold: 30, overbought: 70}}
+  - {strategy: macd_trend,     symbol: MNQ, enabled: true,  params: {fast: 12, slow: 26, signal: 9}}
+  - {strategy: bb_breakout,    symbol: MNQ, enabled: true,  params: {period: 20, mult: 2.0}}
+  - {strategy: vwap_reversion, symbol: MES, enabled: true,  params: {atr_period: 14, atr_mult: 1.5}}
+  - {strategy: orb,            symbol: MNQ, enabled: true,  params: {range_bars: 15}}
+  - {strategy: supertrend,     symbol: MES, enabled: true,  params: {period: 10, mult: 3.0}}
+  - {strategy: donchian,       symbol: MGC, enabled: true,  params: {entry: 20, exit: 10}}
+  - {strategy: keltner,        symbol: MGC, enabled: true,  params: {period: 20, atr_period: 10, mult: 2.0}}

@@ -1,0 +1,30 @@
+# Secrets
+.env
+
+# Database / runtime artifacts
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Desktop build artifacts
+dist/
+build/FuturesBot/
+build/icon.png
+build/icon.ico
+build/icon.icns
+build/icon.iconset/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Saved provider login (contains credentials!)
+connection.json

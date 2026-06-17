@@ -1,0 +1,4 @@
+# Extra deps needed only to BUILD/RUN the desktop app (not for the server).
+pywebview>=5.0        # native window (falls back to browser if unavailable)
+pyinstaller>=6.3      # bundler -> .app / .exe
+pillow>=10.0          # icon generation (build/make_icon.py)

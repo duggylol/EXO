@@ -1,0 +1,93 @@
+name: Build desktop apps
+
+# Builds the macOS app (.app + .dmg) and the Windows app (.exe folder) on real
+# runners. On a version tag (vX.Y.Z) it ALSO publishes a GitHub Release with the
+# installers + update zips attached — which is what the in-app auto-updater reads.
+#
+# Release flow: bump core/version.py, commit, then:
+#   git tag v1.0.1 && git push origin v1.0.1
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write          # needed to create the Release on a tag
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: FuturesTradingBot-macOS
+          - os: windows-latest
+            artifact: FuturesTradingBot-Windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-desktop.txt
+
+      - name: Generate icon (PNG + ICO)
+        run: python build/make_icon.py
+
+      - name: Convert icon to .icns (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ICONSET=build/icon.iconset; mkdir -p "$ICONSET"
+          for s in 16 32 64 128 256 512; do
+            sips -z $s $s build/icon.png --out "$ICONSET/icon_${s}x${s}.png"
+            d=$((s*2)); sips -z $d $d build/icon.png --out "$ICONSET/icon_${s}x${s}@2x.png"
+          done
+          iconutil -c icns "$ICONSET" -o build/icon.icns
+
+      - name: Build app
+        run: pyinstaller --noconfirm --clean FuturesBot.spec
+
+      - name: Sign + package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP="dist/EXO.app"
+          xattr -rd com.apple.provenance "$APP" 2>/dev/null || true
+          xattr -cr "$APP" 2>/dev/null || true
+          codesign --force --deep -s - "$APP"
+          codesign --verify --deep --verbose=2 "$APP"
+          VER=$(python -c 'import core.version as v; print(v.VERSION)')
+          # DMG installer
+          STAGE=build/dmg; mkdir -p "$STAGE"
+          ditto "$APP" "$STAGE/EXO.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "EXO" -srcfolder "$STAGE" -ov -format UDZO "dist/EXO-macOS.dmg"
+          # update zip (read by the in-app updater): ditto preserves signature + symlinks
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "dist/EXO-macOS.zip"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "dist/EXO/*" -DestinationPath "dist/EXO-Windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/*.zip
+            dist/*.dmg
+          if-no-files-found: error
+
+      - name: Publish release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.dmg
+          generate_release_notes: true

@@ -1,0 +1,13 @@
+# Core platform (required) — cross-platform on macOS, Windows, Linux.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+PyYAML>=6.0
+python-dotenv>=1.0
+aiohttp>=3.9
+
+# --- Optional live integrations (install only the one you use) ---
+# Rithmic live data/exec via Protocol Buffer interface (cross-platform):
+#   pip install async-rithmic
+#
+# ProjectX / TopstepX real-time market data hub (SignalR):
+#   pip install signalrcore
