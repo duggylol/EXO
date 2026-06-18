@@ -39,6 +39,8 @@ class StrategyRunner:
     strategy: Strategy
     symbol: str
     enabled: bool = True
+    manual: bool = False          # semi-auto: entries need approval, exits auto
+    _has_pending: bool = False
     position: Position = field(default=None)  # type: ignore
     trade_count: int = 0
     wins: int = 0
@@ -116,6 +118,9 @@ class Engine:
         # REAL account state (from the provider) — never synthesized.
         self.live_account: Optional[AccountInfo] = None
         self.live_positions: list[BrokerPosition] = []
+        self.pending: list[dict] = []     # semi-auto setups awaiting your approval
+        self._sig_id = 0
+        self.signal_ttl_s = float(config.get("signal_ttl_s", 120))
         self.equity_curve: list[tuple[float, float]] = []     # (ts, real equity)
         self._real_session_start: Optional[float] = None
         self._real_peak: Optional[float] = None
@@ -136,7 +141,7 @@ class Engine:
             strat = create_strategy(key, instance_id, symbol, spec.get("params", {}))
             self.runners.append(StrategyRunner(
                 instance_id=instance_id, strategy=strat, symbol=symbol,
-                enabled=spec.get("enabled", True)))
+                enabled=spec.get("enabled", True), manual=spec.get("manual", False)))
 
     # --- lifecycle --------------------------------------------------------
     async def start(self) -> None:
@@ -178,6 +183,7 @@ class Engine:
     async def _housekeeping(self) -> None:
         while True:
             await asyncio.sleep(2.0)
+            self._expire_signals()
             await self.bus.publish(EventType.STATE, self.snapshot())
 
     # --- REAL account polling --------------------------------------------
@@ -277,7 +283,63 @@ class Engine:
                 await self._submit(r, flat_side, close_qty, "risk capped reversal -> flatten")
             return
         side = OrderSide.BUY if want_long else OrderSide.SELL
-        await self._submit(r, side, approval.approved_qty + close_qty, intent.reason)
+        qty = approval.approved_qty + close_qty
+
+        # Semi-auto (cockpit): propose the entry for your approval instead of
+        # firing it. Exits stay automatic (you never hand-approve a stop-loss).
+        if r.manual:
+            if not r._has_pending:
+                self._propose_signal(r, side, qty, intent.reason)
+            return
+
+        await self._submit(r, side, qty, intent.reason)
+
+    def _propose_signal(self, r: StrategyRunner, side: OrderSide, qty: int, reason: str) -> None:
+        self._sig_id += 1
+        strat = r.strategy
+        self.pending.append({
+            "id": f"sig-{self._sig_id}", "strategy_id": r.instance_id, "symbol": r.symbol,
+            "side": side.value, "qty": qty, "reason": reason,
+            "target": getattr(strat, "_entry_target", None),
+            "stop": getattr(strat, "_entry_stop", None),
+            "price": getattr(getattr(strat, "_prev", None), "close", None),
+            "ts": time.time(),
+        })
+        r._has_pending = True
+
+    async def approve_signal(self, sig_id: str) -> bool:
+        sig = next((s for s in self.pending if s["id"] == sig_id), None)
+        if not sig:
+            return False
+        r = next((x for x in self.runners if x.instance_id == sig["strategy_id"]), None)
+        self.pending = [s for s in self.pending if s["id"] != sig_id]
+        if r is None:
+            return False
+        r._has_pending = False
+        await self._submit(r, OrderSide(sig["side"]), sig["qty"], f"approved: {sig['reason']}")
+        return True
+
+    def dismiss_signal(self, sig_id: str) -> bool:
+        sig = next((s for s in self.pending if s["id"] == sig_id), None)
+        if not sig:
+            return False
+        self.pending = [s for s in self.pending if s["id"] != sig_id]
+        for r in self.runners:
+            if r.instance_id == sig["strategy_id"]:
+                r._has_pending = False
+        return True
+
+    def _expire_signals(self) -> None:
+        now = time.time()
+        live = []
+        for s in self.pending:
+            if now - s["ts"] <= self.signal_ttl_s:
+                live.append(s)
+            else:
+                for r in self.runners:
+                    if r.instance_id == s["strategy_id"]:
+                        r._has_pending = False
+        self.pending = live
 
     async def _submit(self, r: StrategyRunner, side: OrderSide, qty: int, reason: str) -> None:
         order = Order(strategy_id=r.instance_id, symbol=r.symbol, side=side, qty=qty, reason=reason)
@@ -379,13 +441,16 @@ class Engine:
                 {
                     "id": r.instance_id, "name": r.strategy.label, "key": r.strategy.key,
                     "symbol": r.symbol, "description": r.strategy.description,
-                    "enabled": r.enabled, "position": r.position.side.value, "qty": r.position.qty,
+                    "enabled": r.enabled, "manual": r.manual,
+                    "position": r.position.side.value, "qty": r.position.qty,
                     "avg_price": r.position.avg_price, "unrealized": r.position.unrealized_pnl,
                     "day_pnl": r.day_pnl, "total_pnl": r.total_pnl, "trades": r.trade_count,
                     "win_rate": r.win_rate,
+                    "viz": getattr(r.strategy, "viz_state", None),
                 }
                 for r in self.runners
             ],
+            "pending_signals": self.pending,
             "equity_curve": self.equity_curve[-400:],
             "recent_trades": [
                 {"id": t.id, "strategy": t.strategy_id, "symbol": t.symbol,

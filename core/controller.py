@@ -235,3 +235,9 @@ class AppController:
     async def flatten_all(self) -> None:
         if self.engine:
             await self.engine.flatten_all_now()
+
+    async def approve_signal(self, sig_id: str) -> bool:
+        return await self.engine.approve_signal(sig_id) if self.engine else False
+
+    def dismiss_signal(self, sig_id: str) -> bool:
+        return self.engine.dismiss_signal(sig_id) if self.engine else False

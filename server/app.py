@@ -127,6 +127,18 @@ def create_app(controller) -> FastAPI:
         await controller.flatten_all()
         return {"ok": True}
 
+    @app.post("/api/signal/{sig_id}/approve")
+    async def approve_signal(sig_id: str):
+        ok = await controller.approve_signal(sig_id)
+        await manager.broadcast({"type": "state", "data": controller.snapshot()})
+        return {"ok": ok}
+
+    @app.post("/api/signal/{sig_id}/dismiss")
+    async def dismiss_signal(sig_id: str):
+        ok = controller.dismiss_signal(sig_id)
+        await manager.broadcast({"type": "state", "data": controller.snapshot()})
+        return {"ok": ok}
+
     @app.get("/api/update/status")
     async def update_status():
         return controller.update_status()

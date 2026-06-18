@@ -28,3 +28,10 @@ build/icon.iconset/
 
 # Saved provider login (contains credentials!)
 connection.json
+
+# Historical data + trained models (large / licensed / derived; keep READMEs)
+data/*.csv
+data/*.txt
+data/*.parquet
+models/*.joblib
+

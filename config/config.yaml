@@ -50,6 +50,8 @@ update:
 # data). Add as many as you like. See keys: python -m backtest.backtester --list
 # ---------------------------------------------------------------------------
 strategies:
+  # Semi-auto cockpit: value-area setups you APPROVE (entries), EXO auto-manages exits.
+  - {strategy: value_area,     symbol: MES, enabled: true,  manual: true}
   - {strategy: ma_cross,       symbol: MES, enabled: true,  params: {fast: 10, slow: 30}}
   - {strategy: ema_trend,      symbol: MES, enabled: true,  params: {fast: 21, slow: 55}}
   - {strategy: rsi_reversion,  symbol: MES, enabled: true,  params: {period: 14, oversold: 30, overbought: 70}}

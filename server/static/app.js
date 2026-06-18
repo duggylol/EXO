@@ -210,6 +210,8 @@ function render(s) {
   hb.textContent = r.permanently_halted ? "HALTED — drawdown breached" : r.day_halted ? "Day halted — daily loss hit" : "active";
   hb.className = "small " + (r.permanently_halted || r.day_halted ? "warn" : "muted");
 
+  renderPending(s.pending_signals || []);
+  renderCockpit(s.strategies || []);
   renderPositions(s.live_positions || []);
   renderStrategies(s.strategies || []);
   renderTrades(s.recent_trades || []);
@@ -223,6 +225,51 @@ function setBar(bar, numEl, pct, text) {
   bar.style.width = pct + "%";
   bar.style.background = pct >= 80 ? "var(--red)" : pct >= 50 ? "var(--yellow)" : "var(--fill)";
   numEl.textContent = text;
+}
+
+// --- cockpit: value-area levels + pending setups ---
+function renderCockpit(strategies) {
+  const va = strategies.find(s => s.key === "value_area" && s.viz);
+  const panel = $("cockpitPanel");
+  if (!va) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const v = va.viz;
+  const badge = $("dayTypeBadge");
+  const dt = v.day_type || "forming";
+  badge.textContent = "day type: " + dt;
+  badge.className = "small " + (dt === "balanced" ? "pos" : dt === "trend" ? "neg" : "muted");
+
+  const rows = [];
+  const push = (label, price, cls) => { if (price != null) rows.push({ label, price, cls }); };
+  push("VAH", v.vah, "neg"); push("POC", v.poc, "warn"); push("VAL", v.val, "pos");
+  if (v.prior) { push("prior VAH", v.prior.vah, "muted"); push("prior POC", v.prior.poc, "muted"); push("prior VAL", v.prior.val, "muted"); }
+  push("● price", v.last, "");
+  rows.sort((a, b) => b.price - a.price);
+  $("vaLevels").innerHTML = rows.map(r =>
+    `<div class="va-row"><span class="va-label ${r.cls}">${r.label}</span><span class="va-price">${num(r.price)}</span></div>`).join("");
+}
+
+function renderPending(signals) {
+  const panel = $("pendingPanel");
+  if (!signals.length) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const root = $("pendingList");
+  root.innerHTML = signals.map(s => {
+    const dir = s.side === "BUY" ? "LONG" : "SHORT";
+    const dcls = s.side === "BUY" ? "pos" : "neg";
+    return `<div class="pending">
+      <div class="pending-info">
+        <span class="${dcls}" style="font-weight:600">${dir} ${Math.abs(s.qty)} ${s.symbol}</span>
+        <span class="muted small">${s.reason || ""}</span>
+        <span class="small">entry ~${num(s.price)} · target ${num(s.target)} · stop ${num(s.stop)}</span>
+      </div>
+      <div class="pending-actions">
+        <button class="btn-approve" data-act="approve" data-id="${s.id}">Approve</button>
+        <button class="btn-ghost" data-act="dismiss" data-id="${s.id}">Dismiss</button>
+      </div></div>`;
+  }).join("");
+  root.querySelectorAll("button[data-id]").forEach(b => b.addEventListener("click", () =>
+    fetch(`/api/signal/${encodeURIComponent(b.dataset.id)}/${b.dataset.act}`, { method: "POST" })));
 }
 
 function renderPositions(positions) {
