@@ -8,5 +8,5 @@ UPDATE_REPO is the default GitHub repo the auto-updater checks. Baking it in
 here (rather than only in config.yaml) means every build can self-update even
 if a user's saved config predates the setting.
 """
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 UPDATE_REPO = "duggylol/EXO"

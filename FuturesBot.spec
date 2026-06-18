@@ -31,6 +31,16 @@ hiddenimports += [
     "h11", "websockets", "anyio", "dotenv", "yaml", "aiohttp",
 ]
 
+# tzdata: the value-area cockpit uses zoneinfo (ET sessions) — bundle the data so
+# it works frozen, especially on Windows which has no system tz database.
+try:
+    tz_datas, tz_bin, tz_hidden = collect_all("tzdata")
+    datas += tz_datas
+    binaries += tz_bin
+    hiddenimports += tz_hidden + ["tzdata"]
+except Exception:
+    pass
+
 # pywebview is optional — collect it (and its backend) only if installed on the
 # build machine. If absent, the app still works via the browser fallback.
 try:
@@ -60,7 +70,14 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    # The packaged app needs none of the ML/data research stack at runtime — the
+    # cockpit + rule strategies use plain math, and the ML meta-filter safely
+    # passes through when these are absent. Excluding them keeps the app ~13MB
+    # instead of ~200MB. (Run research tools from source with requirements-ml.txt.)
+    excludes=[
+        "pandas", "numpy", "scipy", "sklearn", "pyarrow", "databento",
+        "lightgbm", "xgboost", "matplotlib", "IPython", "joblib", "research", "PIL",
+    ],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
